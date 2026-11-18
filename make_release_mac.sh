@@ -33,5 +33,5 @@ fi
 
 mkdir -p release
 rm -f "$OUT"
-ditto -c -k --keepParent "$STAGE/$NAME" "$OUT"
+ditto -c -k --norsrc --noextattr --noacl --keepParent "$STAGE/$NAME" "$OUT"
 echo "wrote $OUT ($(du -h "$OUT" | cut -f1))"
