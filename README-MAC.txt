@@ -5,8 +5,6 @@ Zoom, map, objective arrows, custom HUD, fps counter, player list and more
 for the Mac version of StarBreak. Works on Apple Silicon (through Rosetta,
 like StarBreak itself) and should work on Intel Macs.
 
-Do not run SBPE and sbzoom at the same time.
-
 
 INSTALL
 -------

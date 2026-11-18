@@ -1,14 +1,109 @@
-# StarBreak Plugin Engine (SBPE)
+# SBPE for Mac
 
-> **macOS version:** this fork adds support for the Mac version of StarBreak
-> (Apple Silicon through Rosetta). **[Download the latest Mac release](https://github.com/charyaxd/sbpe/releases/latest)**,
-> unzip it, start Steam and double-click `run.command`. See `README-MAC.txt`
-> in the download for setup and controls, and the [macOS](#macos) section below
-> for how the port works. Original SBPE by [atomizer](https://github.com/atomizer/sbpe).
+**Extra features for StarBreak on Mac:** zoom in and out, a map, arrows that
+point to the next door and secrets, a cleaner health bar, an FPS counter, a
+list of players online, an option to hide other players' clutter, and more.
+
+### [⬇️ Download SBPE for Mac](https://github.com/charyaxd/sbpe/releases/latest/download/sbpe-mac-v1.7.0-mac1.zip)
+
+Works on Macs with Apple chips (M1, M2, M3, M4, …). StarBreak has to be
+installed through Steam.
+
+---
+
+## How to install
+
+1. **Download** SBPE with the button above.
+2. **Unzip it:** open your Downloads folder and double-click the file you
+   downloaded. A folder called **sbpe-mac** appears. Move it somewhere easy
+   to find, like your Documents folder.
+3. **Open Steam** and make sure you're signed in.
+4. **Open the sbpe-mac folder and double-click `run.command`.**
+   The game starts with SBPE. The very first start takes about a minute
+   longer than usual.
+
+That's it. **From now on, always start StarBreak by double-clicking
+`run.command`.** If you press Play in Steam instead, the game starts without
+SBPE.
+
+### If your Mac shows a warning the first time
+
+- **"run.command cannot be opened" or "Apple could not verify…"**: this
+  happens with files downloaded from the internet. Click **Done** (or OK),
+  then open **System Settings → Privacy & Security**, scroll down, and click
+  **Open Anyway** next to the message about run.command. Then double-click
+  run.command again. On older macOS versions you can instead right-click
+  run.command and choose **Open**, then **Open** again. You only need to do
+  this once.
+- **"…requires the command line developer tools"**: click **Install** and
+  wait until it says it's done (a few minutes). This is a free, one-time
+  install from Apple that SBPE needs. Then double-click run.command again.
+
+---
+
+## How to change the controls and settings
+
+All settings are in the file **`config.ini`** inside the sbpe-mac folder (it
+appears after the first start).
+
+1. Right-click `config.ini` and choose **Open With → TextEdit**.
+2. Find the line `[plugin_keybinds]`. Below it, each line is one control. The
+   key is after the `=` sign. For example:
+
+   ```
+   zoom level toggle -1 3000 = Z
+   map visible hold yes no = Right Option
+   playerlist visible hold yes no = V
+   ```
+
+   This means: **Z** switches zoom, holding **Right Option** shows the map,
+   and holding **V** shows the player list. Change the key after `=` to the
+   key you want.
+3. Save with **Cmd + S**. Changes work right away, even while the game is
+   running.
+
+Good to know:
+
+- Mac keys are called `Left Option`, `Right Option`, `Left Command` and
+  `Right Command`. Letters and numbers are just the letter or number (`Z`,
+  `7`). Mac laptops have no number pad and no right Control key, so change
+  any controls that use `Keypad …` or `Right Ctrl`.
+- If you type a key name that doesn't exist, the game shows it in red in the
+  top left corner for a few seconds.
+- In TextEdit, turn off **Edit → Substitutions → Smart Quotes**, otherwise
+  TextEdit may change characters and break the settings file.
+- Other settings in `config.ini` use `yes` and `no`, for example
+  `hide_chat = yes`. Each one has a short explanation above it.
+
+---
+
+## Something not working?
+
+- **The game starts, but nothing from SBPE shows up:** you probably started
+  it from Steam. Close the game and start it with `run.command`.
+- **StarBreak is installed in a different place** (for example on an
+  external drive): open `config.ini` and change the line that starts with
+  `game =` to the location of `MVMMOClient.app`.
+- **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpe/issues)
+  and attach the files `remote.log` and `crash.log` from the sbpe-mac folder.
+  Please **don't** share `game.log` publicly, it contains your Steam ID.
+
+**On Windows?** This download is for Mac only. Windows players can use the
+original SBPE: https://github.com/atomizer/sbpe/releases
+
+---
+
+# Technical details
+
+Everything below is the original SBPE documentation plus notes on the Mac
+port. You don't need it to play. Original SBPE by
+[atomizer](https://github.com/atomizer/sbpe).
+
+## StarBreak Plugin Engine (SBPE)
 
 ## Features
 
-- zoom, faster and more compatible than sbzoom
+- zoom
 - arrows pointing towards objectives, trigger indicators
 - hide visual noise, with granular configuration
 - custom status hud and healthbar
@@ -32,8 +127,6 @@
 https://github.com/atomizer/sbpe/releases
 
 ## Run
-
-**Important: do not run sbpe and sbzoom at the same time!**
 
 - set correct game path in `config.ini`
 - on windows, start `run.bat`
