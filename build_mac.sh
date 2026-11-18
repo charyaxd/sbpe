@@ -12,10 +12,34 @@ fi
 
 PY=(arch -x86_64 /Library/Developer/CommandLineTools/usr/bin/python3)
 
+# libs/subhook and libs/plthook are git submodules: a plain "git clone" or
+# GitHub's "Download ZIP" leaves them empty, so fetch them if needed.
+# (pinned commits, same as the submodule entries)
+fetch_lib() {  # name url commit file-that-must-exist
+    local name="$1" url="$2" commit="$3" check="$4"
+    [ -f "libs/$name/$check" ] && return 0
+    echo "fetching libs/$name"
+    if [ -d .git ] && git submodule update --init "libs/$name" 2>/dev/null \
+            && [ -f "libs/$name/$check" ]; then
+        return 0
+    fi
+    mkdir -p "libs/$name"
+    curl -sfL "$url/archive/$commit.tar.gz" | tar xz -C "libs/$name" --strip-components=1
+    if [ ! -f "libs/$name/$check" ]; then
+        echo "error: could not download libs/$name from $url" >&2
+        exit 1
+    fi
+}
+fetch_lib subhook https://github.com/Dasharo/subhook \
+    29cb47ea7674b36cf2b742c11cf2568add1f47fc subhook_x86.c
+fetch_lib plthook https://github.com/kubo/plthook \
+    bab7db26896d9c92b7bead673ea91a7cb6071604 plthook.h
+
 # subhook needs x86_64 fixes (near trampolines, instruction decoder)
 if ! grep -q "sbpe:" libs/subhook/subhook_x86.c; then
     echo "patching libs/subhook"
-    patch -p1 -N -d libs/subhook < patches/subhook-x86_64-fixes.patch
+    # -t: never stop to ask questions, fail instead
+    patch -t -p1 -N -d libs/subhook < patches/subhook-x86_64-fixes.patch
 fi
 
 export PYTHONPATH="$PWD/site-packages"

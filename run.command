@@ -40,7 +40,11 @@ xattr -dr com.apple.quarantine . 2>/dev/null
 WANT="$(cat build/python_version 2>/dev/null)"
 HAVE="$("${PY[@]}" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 if [ ! -f build/remote.bin ] || [ "$WANT" != "$HAVE" ]; then
-    echo "prebuilt SBPE is for Python ${WANT:-?}, this Mac has $HAVE: rebuilding"
+    if [ -f build/remote.bin ]; then
+        echo "prebuilt SBPE is for Python ${WANT:-?}, this Mac has $HAVE: rebuilding"
+    else
+        echo "building SBPE from source (first start only, takes a minute)"
+    fi
     ./build_mac.sh || pause_exit 1
 fi
 
