@@ -8,6 +8,9 @@
 #include "../cdefs/generated.h" // needed to define enum values
 #endif
 #include "../cdefs/XDL.h"
+#ifdef __APPLE__
+#include "../cdefs/darwin.h"
+#endif
 
 // defined later by cffi (embedding_api)
 uint32_t kickstart();

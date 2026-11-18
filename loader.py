@@ -46,6 +46,67 @@ def resolveExePath(path):
         path = os.path.join(path, 'Contents', 'MacOS', 'mvmmoclient')
     return path
 
+def findGameDarwin():
+    '''look for MVMMOClient.app: Steam libraries, then Spotlight'''
+    import re
+    candidates = [DEFAULTGAMEPATH]
+    # every Steam library folder (other drives, etc.)
+    vdf = os.path.expanduser(
+        '~/Library/Application Support/Steam/steamapps/libraryfolders.vdf')
+    try:
+        with open(vdf, 'r', errors='replace') as f:
+            for lib in re.findall(r'"path"\s+"([^"]+)"', f.read()):
+                candidates.append(os.path.join(
+                    lib, 'steamapps', 'common', 'StarBreak', 'MVMMOClient.app'))
+    except OSError:
+        pass
+    # anywhere else Spotlight knows about (copied or other Steam installs)
+    try:
+        out = subprocess.check_output(
+            ['mdfind', "kMDItemCFBundleIdentifier == 'com.crunchy.mvmmoclient'"],
+            stderr=subprocess.DEVNULL, timeout=10).decode()
+        candidates += [l for l in out.splitlines() if l.endswith('.app')]
+    except Exception:
+        pass
+    for c in candidates:
+        if os.access(resolveExePath(c), os.X_OK):
+            return c
+    return None
+
+
+def askGameDarwin():
+    '''let the player pick MVMMOClient.app in a normal Mac file dialog'''
+    script = (
+        'POSIX path of (choose file of type {"app"} with prompt '
+        '"SBPE could not find StarBreak. Please select MVMMOClient.app '
+        '(usually in Steam/steamapps/common/StarBreak)" '
+        'default location (path to home folder))')
+    try:
+        out = subprocess.check_output(
+            ['osascript', '-e', script], stderr=subprocess.DEVNULL)
+    except Exception:
+        return None  # cancelled
+    path = out.decode().strip().rstrip('/')
+    return path if os.access(resolveExePath(path), os.X_OK) else None
+
+
+def saveGamePath(path):
+    '''write game = PATH into config.ini, keeping all comments'''
+    try:
+        with open(CONFFILE, 'r') as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.split('=')[0].strip() == 'game':
+                lines[i] = 'game = {}\n'.format(path)
+                break
+        else:
+            lines.insert(1, 'game = {}\n'.format(path))
+        with open(CONFFILE, 'w') as f:
+            f.writelines(lines)
+    except OSError as e:
+        logging.error('could not save game path: {}'.format(e))
+
+
 # offsets of these symbols will be passed to the remote
 SYMLIST = '''
 stage window_ canvasW_ canvasH_
@@ -162,15 +223,28 @@ def runLoader(exepath=''):
     conf = configparser.ConfigParser()
     conf.read(CONFFILE)
     exepath = resolveExePath(conf.get('general', 'game', fallback=exepath))
-    if platform.system() == 'Darwin' and not os.path.isfile(exepath):
-        # e.g. untouched windows path from the template
-        exepath = resolveExePath(DEFAULTGAMEPATH)
+    if platform.system() == 'Darwin' and not os.access(exepath, os.X_OK):
+        # not set yet (or the template's windows path), or the game moved
+        found = findGameDarwin()
+        if found is None:
+            logging.info('StarBreak not found, asking where it is')
+            found = askGameDarwin()
+        if found is not None:
+            logging.info('found StarBreak: ' + found)
+            saveGamePath(found)
+            exepath = resolveExePath(found)
     mipmaps = conf.getboolean('general', 'mipmaps', fallback=False)
     keepopen = conf.getboolean('general', 'keep_open', fallback=False)
 
     # ensure the binary exists
     if not os.path.isfile(exepath):
-        logging.error('put the path to the game executable in ' + CONFFILE)
+        if platform.system() == 'Darwin':
+            logging.error(
+                'StarBreak was not found. Install it in Steam (on this Mac '
+                'user account), or set "game =" in config.ini to the location '
+                'of MVMMOClient.app')
+        else:
+            logging.error('put the path to the game executable in ' + CONFFILE)
         return False
 
     # resolve symbols and prepare environment

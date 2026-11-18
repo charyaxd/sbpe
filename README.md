@@ -68,7 +68,7 @@ appears after the first start).
    | **V** (hold) | show the list of players |
    | **9** | switch camera centering |
    | **B** | show monsters' health numbers |
-   | **X** | hide other players' names, health bars, attacks and effects |
+   | **X** | hide other players' names, health bars, attacks and effects (your own effects stay visible) |
    | **0** | hide / show the chat |
 3. Save with **Cmd + S**. Changes work right away, even while the game is
    running.
@@ -92,9 +92,11 @@ Good to know:
 
 - **The game starts, but nothing from SBPE shows up:** you probably started
   it from Steam. Close the game and start it with `run.command`.
-- **StarBreak is installed in a different place** (for example on an
-  external drive): open `config.ini` and change the line that starts with
-  `game =` to the location of `MVMMOClient.app`.
+- **"StarBreak was not found"**: SBPE looks in all your Steam library
+  folders, and if it still can't find the game it asks you to pick
+  `MVMMOClient.app` (in Steam's `steamapps/common/StarBreak` folder). StarBreak
+  must be installed in Steam on the Mac user account you're using; each Mac
+  user has their own Steam games.
 - **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpe/issues)
   and attach the files `remote.log` and `crash.log` from the sbpe-mac folder.
   Please **don't** share `game.log` publicly, it contains your Steam ID.
@@ -282,6 +284,7 @@ These sub-options are:
 - `hide_names`, `hide_factions`, `hide_healthbars`: hide various elements of other players. `hide_names` will also hide factions due to the way it works.
 - `hide_ally_objects`: hide all objects created by other players, except for macrons. This includes, but not limited to: bullets, grenades, fire, blasts, rockets.
 - `hide_effects`: hide damage effects (flashes/explosion sprites), death animations, particle trails (smoke trails, warp particles).
+- `hide_own_effects`: whether `hide_effects` also hides the effects of your own character: your attacks and their explosions, hits you deal, hits you take, your trails. Default `no`: only effects of mobs and other players are hidden. (On macOS; other builds always hide all effects.)
 - `replace_shake`: replace screen shake and flash effects with an indicator in top middle of the screen.
 - `hide_chat`: completely hide chat.
 
