@@ -146,7 +146,7 @@ Rest of the options are element colors. Remember that you can set color to 0 to 
 ### `[plugin_extra_info]` - extra information
 
 - `trigger_color`, `trigger_frame`: shows rectangles that represent invisible triggers that the game uses to react to players (most prominently in TL and FB, but also pretty much everywhere in doors etc.)
-- `show_hp`: display health and armor on top of objects. Yellow numbers are positive, blue - negative. Turns out to be mostly useless, since most bosses don't report their HP to the clients - it just goes negative and doesn't actually represent internal state.
+- `show_hp`: display health and armor on top of objects. Other players' numbers are left out while `[plugin_noise]` `hide_shells` or `hide_healthbars` is on. Yellow numbers are positive, blue - negative. Turns out to be mostly useless, since most bosses don't report their HP to the clients - it just goes negative and doesn't actually represent internal state.
 - `show_uses`: show portal player counts and key counts on the depository.
 - `show_room_id`: display zone name and floor number in bottom right corner.
 

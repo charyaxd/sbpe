@@ -128,7 +128,14 @@ class Plugin(PluginBase):
 
         objects = util.worldobjects(cw.serverSubWorld)
         objects += util.worldobjects(cw.mySubWorld.asNativeSubWorld)
-        objects += util.vec2list(cw.allies, 'struct WorldObject *')
+        allies = util.vec2list(cw.allies, 'struct WorldObject *')
+        objects += allies
+
+        # don't show other players' hp/armor while plugin_noise hides them
+        hideAllyHp = self.noiseHidesAllies()
+        allyAddrs = set()
+        if hideAllyHp:
+            allyAddrs = {int(ffi.cast('uintptr_t', a)) for a in allies}
 
         kinds = self.config.arrows.split()
 
@@ -155,7 +162,9 @@ class Plugin(PluginBase):
                 y - h2 < self.refs.canvasH_[0]
 
             # object hp/armor
-            if inbounds and self.config.show_hp:
+            isHiddenAlly = hideAllyHp and \
+                int(ffi.cast('uintptr_t', obj)) in allyAddrs
+            if inbounds and self.config.show_hp and not isHiddenAlly:
                 if p.hitpoints >= 0:
                     self.numbers.draw(
                         p.hitpoints, x, y, anchorX=0.5, anchorY=1)
@@ -222,6 +231,16 @@ class Plugin(PluginBase):
             self.roomtxt.draw(
                 self.refs.windowW - 4, self.refs.windowH - 4,
                 anchorX=1, anchorY=1)
+
+    def noiseHidesAllies(self):
+        '''whether plugin_noise currently hides other players or their hp'''
+        noise = self.refs.manager._active.get('plugin_noise')
+        if noise is None:
+            return False
+        try:
+            return bool(noise.config.hide_shells or noise.config.hide_healthbars)
+        except Exception:
+            return False
 
     def drawArrow(self, src, dst, kind):
         optprefix = 'arrow_' + kind + '_'
