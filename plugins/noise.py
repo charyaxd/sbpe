@@ -48,7 +48,7 @@ class Plugin(PluginBase):
             props = obj.props
             if self.config.hide_shells:
                 # fail: triggers game's "unknown object" box drawing
-                ffi.cast('int *', props.vid.s)[-3] = 0
+                util.clearstr(props.vid)
 
             if self.config.hide_names:
                 # remember and remove relevant bits; also hides factions
@@ -59,7 +59,7 @@ class Plugin(PluginBase):
                 # hide only faction names by zeroing faction name length
                 if props.playerdata != ffi.NULL:
                     fname = props.playerdata.factionname
-                    ffi.cast('int *', fname.s)[-3] = 0
+                    util.clearstr(fname)
 
             if self.config.hide_healthbars:
                 # not sure if this breaks anything
@@ -70,9 +70,9 @@ class Plugin(PluginBase):
                 cw.clientSubWorlds, 'struct ForeignSubWorld *')
             for csubworld in worlds:
                 for obj in util.worldobjects(csubworld):
-                    if obj in allies:
+                    #if obj in allies:
                         # shells are treated separately
-                        continue
+                        #continue
                     if obj.props.terraintype > 0:
                         # anything that acts like terrain (macrons)
                         continue

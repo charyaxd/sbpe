@@ -1,3 +1,5 @@
+int SDL_Init(uint32_t flags);
+
 // keyboard
 
 void *SDL_GetKeyboardFocus(void);

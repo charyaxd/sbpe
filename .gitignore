@@ -12,3 +12,10 @@ config.ini
 plugins/test.py
 symbols.json
 out/
+cdefs/generated_darwin.h
+game.log
+crash.log
+site-packages/
+*.o
+rectbinpack/_rbp*.so
+release/

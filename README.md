@@ -1,5 +1,11 @@
 # StarBreak Plugin Engine (SBPE)
 
+> **macOS version:** this fork adds support for the Mac version of StarBreak
+> (Apple Silicon through Rosetta). **[Download the latest Mac release](https://github.com/charyaxd/sbpe/releases/latest)**,
+> unzip it, start Steam and double-click `run.command`. See `README-MAC.txt`
+> in the download for setup and controls, and the [macOS](#macos) section below
+> for how the port works. Original SBPE by [atomizer](https://github.com/atomizer/sbpe).
+
 ## Features
 
 - zoom, faster and more compatible than sbzoom
@@ -18,7 +24,7 @@
 ## OS support
 
 - Windows: yes
-- Mac: no
+- Mac: yes (tested on Apple Silicon via Rosetta; Intel untested; see "macOS" below)
 - Linux: no
 
 ## Download
@@ -31,6 +37,35 @@ https://github.com/atomizer/sbpe/releases
 
 - set correct game path in `config.ini`
 - on windows, start `run.bat`
+
+## macOS
+
+Build once (needs the Xcode Command Line Tools: `xcode-select --install`):
+
+    ./build_mac.sh
+
+Then, with Steam running, start the game through SBPE by double-clicking
+`run.command` (or running it from Terminal). `game` in `config.ini` may point
+either at `MVMMOClient.app` or at the `mvmmoclient` binary inside it.
+
+Notes:
+
+- The mac client is an x86_64 binary, so SBPE is built for x86_64 and runs
+  under Rosetta on Apple Silicon, using the Command Line Tools' Python 3.9.
+  Python modules are installed into `site-packages/` next to the scripts.
+- The library is injected with `DYLD_INSERT_LIBRARIES` (the game is not
+  code-signed) and starts by interposing `SDL_Init`. Game symbols are looked up
+  in the running game's own symbol table, so `symquery` is not needed.
+- The game's output goes to `game.log`; crashes are written to `crash.log`
+  (native and python backtraces). Set `SBPE_DEBUG=1` for verbose `remote.log`.
+- The mac client is 64-bit clang/libc++, so `cdefs/internals_libcxx.h` holds
+  libc++ STL layouts and `cdefs/generated_darwin.h` is generated from
+  `generated.h` by `misc/fix_layout_darwin.py` (Itanium ABI tail padding).
+  `misc/offsets_darwin.py Struct.field ...` prints offsets for checking
+  against the disassembly (`otool -tV`).
+- `libs/subhook` needs `patches/subhook-x86_64-fixes.patch` (applied by
+  `build_mac.sh`): trampolines are allocated within 2GB of the hooked code,
+  and three x86_64 instruction decoding bugs are fixed.
 
 ## Configure
 
@@ -54,14 +89,14 @@ Sections of the config:
 
 ### `[general]`
 
-- `game`: the path to `mvmmoclient.exe`
+- `game`: the path to `mvmmoclient.exe` (macOS: `MVMMOClient.app`)
 - `mipmaps`: whether to use mipmapping at all. Recommended to leave enabled, but turn off if you have any problems. Also, see below section "mipmaps and sprite editing".
 - `mipmap_maxlevel`: integer, default: 2, recommended sane range: 0 to 4. Determines the maximum mipmap level that will be generated. Increasing this makes sense if you intend to zoom more than 4 times further than your native resolution. Increasing this also increases the amount of sprite sheets and video memory requirements. If you are interested, you can read more about mipmapping on the internet.
 - `keep_open`: if `yes`, the command line window will stay open and show the log in real time. Useful for debugging.
 
 ### `[manager]`
 
-- `period`: polling period in seconds between live reload checks. All plugins and the config can be edited while the game is running, and the changes should in theory be applied in real time. Some settings, like window size, keybinds, mipmaps, require restart.
+- `period`: polling period in seconds between live reload checks. All plugins and the config can be edited while the game is running, and the changes should in theory be applied in real time. Some settings, like window size and mipmaps, require restart.
 - `priority`: priority queue for the plugins. The specified plugin's callbacks will be executed first, then all the rest. Can be tweaked to change draw order.
 
 ### `[plugin_zoom]` - zoom
@@ -154,6 +189,8 @@ These sub-options are:
 ### `[plugin_keybinds]` - bind keys to plugin options
 
 - `info_time`: if > 0, shows debug info about which keybind was triggered in the top left corner.
+
+Keybinds are re-read whenever `config.ini` changes, so they can be edited while the game is running. Unknown key names are shown in red in the top left corner. On macOS the modifier keys are named `Left Option`, `Right Option`, `Left Command`, `Right Command`.
 
 Rest of the options are keybinds. The format is:
 

@@ -1,0 +1,162 @@
+--- a/subhook_x86.c
++++ b/subhook_x86.c
+@@ -33,6 +33,65 @@
+ #include "subhook.h"
+ #include "subhook_private.h"
+ 
++#if defined SUBHOOK_X86_64 && defined SUBHOOK_UNIX
++#include <stdint.h>
++#include <unistd.h>
++#include <sys/mman.h>
++
++/* sbpe: on x86_64 the trampoline must be within +-2GB of the source,
++ * otherwise rel32 calls/jumps and RIP-relative operands copied from the
++ * prologue cannot be relocated (heap memory is usually much further away,
++ * e.g. on macOS). Map a page close to the source instead of using calloc.
++ */
++#define SUBHOOK_NEAR_RANGE 0x7ff00000L
++
++static void *subhook_alloc_near(void *src, size_t size) {
++  uintptr_t pagesize = (uintptr_t)sysconf(_SC_PAGESIZE);
++  uintptr_t base = (uintptr_t)src & ~(pagesize - 1);
++  uintptr_t d;
++  int sign;
++
++  if (size > pagesize) {
++    return NULL;
++  }
++  for (d = 0x100000; d < (uintptr_t)SUBHOOK_NEAR_RANGE; d += 0x100000) {
++    for (sign = 0; sign < 2; sign++) {
++      uintptr_t hint;
++      void *p;
++      if (sign == 0) {
++        if (base < d) continue;
++        hint = base - d;
++      } else {
++        hint = base + d;
++      }
++      p = mmap((void *)hint, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC,
++               MAP_PRIVATE | MAP_ANON, -1, 0);
++      if (p == MAP_FAILED) {
++        continue;
++      }
++      if ((intptr_t)p - (intptr_t)src < SUBHOOK_NEAR_RANGE
++          && (intptr_t)src - (intptr_t)p < SUBHOOK_NEAR_RANGE) {
++        memset(p, 0, pagesize);
++        return p;
++      }
++      munmap(p, pagesize);
++    }
++  }
++  return NULL;
++}
++
++static void subhook_free_near(void *p) {
++  if (p != NULL) {
++    munmap(p, (size_t)sysconf(_SC_PAGESIZE));
++  }
++}
++#define SUBHOOK_TRAMPOLINE_ALLOC(src, size) subhook_alloc_near((src), (size))
++#define SUBHOOK_TRAMPOLINE_FREE(p) subhook_free_near(p)
++#else
++#define SUBHOOK_TRAMPOLINE_ALLOC(src, size) calloc(1, (size))
++#define SUBHOOK_TRAMPOLINE_FREE(p) free(p)
++#endif
++
+ #ifdef SUBHOOK_WINDOWS
+   #define INT32_MAX 0x7fffffff
+   #define INT32_MIN (-INT32_MAX - 1)
+@@ -276,16 +335,18 @@
+         /* The SIB is followed by a disp32 with no base if the MOD is 00B.
+          * Otherwise, disp8 or disp32 + [EBP].
+          */
+-        if (mod == 1) {
+-          len += 1; /* for disp8 */
+-        } else {
++        /* sbpe: with MOD 01/10 the displacement is counted below; only
++         * MOD 00 + base 101 means a disp32 without base
++         */
++        if (mod == 0) {
+           len += 4; /* for disp32 */
+         }
+       }
+     }
+ 
+ #ifdef SUBHOOK_X86_64
+-    if (reloc_op_offset != NULL && rm == 5) {
++    /* sbpe: only MOD 00 + R/M 101 is RIP-relative ([rbp+disp] otherwise) */
++    if (reloc_op_offset != NULL && mod == 0 && rm == 5) {
+       *reloc_op_offset = (int32_t)len; /* RIP-relative addressing */
+     }
+ #endif
+@@ -305,7 +366,14 @@
+     len += 2;
+   }
+   if (opcodes[i].flags & IMM32) {
+-    len += operand_size;
++    /* sbpe: REX.W keeps imm32 (sign-extended) for everything except
++     * MOV r64, imm64 (B8+r); 66h shrinks it to imm16
++     */
++    if (operand_size == 8 && !(opcodes[i].flags & PLUS_R)) {
++      len += 4;
++    } else {
++      len += operand_size;
++    }
+   }
+ 
+   return len;
+@@ -415,9 +483,15 @@
+       /* Calculate how far our trampoline is from the source and change
+        * the address accordingly.
+        */
+-      int32_t offset = (int32_t)(trampoline_addr - src_addr);
++      int64_t offset = (int64_t)trampoline_addr - (int64_t)src_addr;
+       int32_t *op = (int32_t *)(trampoline_addr + orig_size + reloc_op_offset);
+-      *op -= offset;
++      int64_t value = (int64_t)*op - offset;
++
++      /* sbpe: refuse instead of silently truncating the displacement */
++      if (value < INT32_MIN || value > INT32_MAX) {
++        return -EOVERFLOW;
++      }
++      *op = (int32_t)value;
+     }
+ 
+     orig_size += insn_len;
+@@ -457,7 +531,8 @@
+ 
+   memcpy(hook->code, hook->src, hook->jmp_size);
+ 
+-  if ((hook->trampoline = calloc(1, hook->trampoline_size)) == NULL) {
++  if ((hook->trampoline =
++       SUBHOOK_TRAMPOLINE_ALLOC(src, hook->trampoline_size)) == NULL) {
+     free(hook->code);
+     free(hook);
+     return NULL;
+@@ -466,7 +541,7 @@
+   if (subhook_unprotect(hook->src, hook->jmp_size) == NULL
+     || subhook_unprotect(hook->trampoline, hook->trampoline_size) == NULL)
+   {
+-    free(hook->trampoline);
++    SUBHOOK_TRAMPOLINE_FREE(hook->trampoline);
+     free(hook->code);
+     free(hook);
+     return NULL;
+@@ -480,7 +555,7 @@
+     hook->flags);
+ 
+   if (hook->trampoline_len == 0) {
+-    free(hook->trampoline);
++    SUBHOOK_TRAMPOLINE_FREE(hook->trampoline);
+     hook->trampoline = NULL;
+   }
+ 
+@@ -491,7 +566,7 @@
+   if (hook == NULL) {
+     return;
+   }
+-  free(hook->trampoline);
++  SUBHOOK_TRAMPOLINE_FREE(hook->trampoline);
+   free(hook->code);
+   free(hook);
+ }

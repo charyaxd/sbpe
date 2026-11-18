@@ -1,5 +1,6 @@
 import logging
 import math
+import platform
 
 from PIL import Image
 
@@ -304,10 +305,36 @@ def updateState():
     # add more useful things here
 
 
+LIBCXX = platform.system() == 'Darwin'
+
+
+def strptr(stdstring):
+    '''char* of a std::string (struct STDString or pointer to it)'''
+    if not LIBCXX:
+        return stdstring.s
+    # libc++: low bit of the first byte set = heap (long) representation
+    if stdstring.s_.size & 1:
+        return stdstring.l.data
+    return stdstring.s_.data
+
+
+def clearstr(stdstring):
+    '''make a std::string empty in place'''
+    if not LIBCXX:
+        ffi.cast('int *', stdstring.s)[-3] = 0
+        return
+    if stdstring.s_.size & 1:
+        stdstring.l.size = 0
+        stdstring.l.data[0] = b'\0'
+    else:
+        stdstring.s_.size = 0
+        stdstring.s_.data[0] = b'\0'
+
+
 def getstr(stdstring):
     if stdstring == ffi.NULL:
         return '(NULL)'
-    return ffi.string(stdstring.s, 1000).decode('utf-8', errors='replace')
+    return ffi.string(strptr(stdstring), 1000).decode('utf-8', errors='replace')
 
 
 def veclen(vector, itemtype='void*'):

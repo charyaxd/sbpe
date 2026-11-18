@@ -20,7 +20,7 @@ class Plugin(PluginBase):
             return
         menu.version.asUIElement.show = False
         if len(self.vtxt.text) == 0:
-            sbver = ffi.string(menu.version.text.s).decode()
+            sbver = util.getstr(menu.version.text)
             self.vtxt.text = VTEMPLATE.format(sbver, self.refs)
 
     def onPresent(self):

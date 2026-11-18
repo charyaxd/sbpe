@@ -8,8 +8,9 @@ import subprocess
 import sys
 import time
 
-from mayhem.proc import ProcessError
-from mayhem.proc.native import NativeProcess
+if platform.system() == 'Windows':
+    from mayhem.proc import ProcessError
+    from mayhem.proc.native import NativeProcess
 
 import logging
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
@@ -17,7 +18,8 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 BASE = 0x400000
 DEFAULTGAMEPATH = {
     'Windows': 'c:\\Program Files (x86)\\Steam\\SteamApps\\common\\StarBreak\\mvmmoclient.exe',
-    'Linux': os.path.expanduser('~/.steam/steam/steamapps/common/StarBreak/mvmmoclient')
+    'Linux': os.path.expanduser('~/.steam/steam/steamapps/common/StarBreak/mvmmoclient'),
+    'Darwin': os.path.expanduser('~/Library/Application Support/Steam/steamapps/common/StarBreak/MVMMOClient.app')
 }[platform.system()]
 
 SCRIPTPATH = os.path.dirname(__file__) or os.getcwd()
@@ -27,10 +29,22 @@ SYMQPATH = os.path.normpath(os.path.join(SCRIPTPATH, SYMQPATH))
 CONFFILE = os.path.join(SCRIPTPATH, 'config.ini')
 CONF_TEMPLATE = os.path.join(SCRIPTPATH, 'config_template.ini')
 SYMFILE = os.path.join(SCRIPTPATH, 'symbols.json')
+GAMELOG = os.path.join(SCRIPTPATH, 'game.log')
 
-STARTUP_OFFSET = subprocess.check_output([
-    SYMQPATH, '-e', REMOTEPATH, '-s', 'kickstart'])
-STARTUP_OFFSET = int(STARTUP_OFFSET.strip(), 16)
+# only needed for remote thread injection on Windows
+STARTUP_OFFSET = None
+if platform.system() == 'Windows':
+    STARTUP_OFFSET = subprocess.check_output([
+        SYMQPATH, '-e', REMOTEPATH, '-s', 'kickstart'])
+    STARTUP_OFFSET = int(STARTUP_OFFSET.strip(), 16)
+
+
+def resolveExePath(path):
+    '''accept either the .app bundle or the binary inside it (macOS)'''
+    path = os.path.expanduser(path)
+    if path.endswith('.app') or os.path.isdir(path):
+        path = os.path.join(path, 'Contents', 'MacOS', 'mvmmoclient')
+    return path
 
 # offsets of these symbols will be passed to the remote
 SYMLIST = '''
@@ -93,13 +107,27 @@ def launch(exepath):
     if platform.system() == 'Linux':
         os.environ['LD_PRELOAD'] = REMOTEPATH
     if platform.system() == 'Darwin':
+        # the game binary is unsigned (no hardened runtime), so dyld honors
+        # this; the dylib interposes SDL_Init via __DATA,__interpose
         os.environ['DYLD_INSERT_LIBRARIES'] = REMOTEPATH
-        os.environ['DYLD_FORCE_FLAT_NAMESPACE'] = '1'
+        os.environ.pop('DYLD_FORCE_FLAT_NAMESPACE', None)
+        # the embedded interpreter needs _cffi_backend etc. before remote.py
+        # gets a chance to extend sys.path
+        sitedir = os.path.join(SCRIPTPATH, 'site-packages')
+        os.environ['PYTHONPATH'] = os.pathsep.join(
+            [SCRIPTPATH, sitedir] + sys.path[1:])
 
     # start the game
+    if platform.system() == 'Windows':
+        gout = subprocess.PIPE
+    else:
+        # the game logs a lot to stderr (glog): a pipe nobody drains would
+        # eventually block it, and SIGPIPE would kill it once the loader
+        # exits, so send it to a file instead
+        gout = open(GAMELOG, 'wb')
     gpop = subprocess.Popen(
         [exepath], stderr=subprocess.STDOUT,
-        stdout=subprocess.PIPE, cwd=os.path.dirname(exepath))
+        stdout=gout, cwd=os.path.dirname(exepath))
 
     # on Windows, inject into the running process
     if platform.system() == 'Windows':
@@ -133,7 +161,10 @@ def runLoader(exepath=''):
 
     conf = configparser.ConfigParser()
     conf.read(CONFFILE)
-    exepath = conf.get('general', 'game', fallback=exepath)
+    exepath = resolveExePath(conf.get('general', 'game', fallback=exepath))
+    if platform.system() == 'Darwin' and not os.path.isfile(exepath):
+        # e.g. untouched windows path from the template
+        exepath = resolveExePath(DEFAULTGAMEPATH)
     mipmaps = conf.getboolean('general', 'mipmaps', fallback=False)
     keepopen = conf.getboolean('general', 'keep_open', fallback=False)
 
@@ -143,7 +174,10 @@ def runLoader(exepath=''):
         return False
 
     # resolve symbols and prepare environment
-    offsets = resolveSymbols(exepath)
+    if platform.system() == 'Darwin':
+        offsets = {}  # resolved inside the game process (see remote.py)
+    else:
+        offsets = resolveSymbols(exepath)
     if offsets is not None:
         logging.info('symbols ok')
     else:
@@ -225,7 +259,11 @@ def runLoader(exepath=''):
     logging.info('game closed: code {}'.format(gpop.returncode))
 
     # dump stdout
-    stdo = gpop.communicate()[0].decode()
+    if platform.system() == 'Windows':
+        stdo = gpop.communicate()[0].decode()
+    else:
+        with open(GAMELOG, 'rb') as f:
+            stdo = f.read().decode(errors='replace')
 
     if len(stdo) > 0:
         logging.info('stdout:')

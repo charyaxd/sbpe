@@ -7,11 +7,15 @@ MaxRectsBinPack mbp;
 
 std::vector<Rect> dst;
 
-int MaxRectsBestShortSideFit = MaxRectsBinPack::RectBestShortSideFit; ///< -BSSF: Positions the rectangle against the short side of a free rectangle into which it fits the best.
-int MaxRectsBestLongSideFit = MaxRectsBinPack::RectBestLongSideFit; ///< -BLSF: Positions the rectangle against the long side of a free rectangle into which it fits the best.
-int MaxRectsBestAreaFit = MaxRectsBinPack::RectBestAreaFit; ///< -BAF: Positions the rectangle into the smallest free rect into which it fits.
-int MaxRectsBottomLeftRule = MaxRectsBinPack::RectBottomLeftRule; ///< -BL: Does the Tetris placement.
-int MaxRectsContactPointRule = MaxRectsBinPack::RectContactPointRule; ///< -CP: Choosest the placement where the rectangle touches other rects as much as possible.
+// a real enum (MSVC accepted the previous forward-referenced enum + ints,
+// clang/gcc do not); values mirror the library's own heuristic enum
+enum MaxRectsFreeRectChoiceHeuristic {
+	MaxRectsBestShortSideFit = MaxRectsBinPack::RectBestShortSideFit, ///< -BSSF
+	MaxRectsBestLongSideFit = MaxRectsBinPack::RectBestLongSideFit, ///< -BLSF
+	MaxRectsBestAreaFit = MaxRectsBinPack::RectBestAreaFit, ///< -BAF
+	MaxRectsBottomLeftRule = MaxRectsBinPack::RectBottomLeftRule, ///< -BL
+	MaxRectsContactPointRule = MaxRectsBinPack::RectContactPointRule ///< -CP
+};
 
 
 extern "C" {
