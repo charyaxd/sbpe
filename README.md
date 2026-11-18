@@ -51,14 +51,25 @@ appears after the first start).
    key is after the `=` sign. For example:
 
    ```
-   zoom level toggle -1 3000 = Z
-   map visible hold yes no = Right Option
+   zoom level toggle -1 3000 = z
+   map visible hold yes no = f
    playerlist visible hold yes no = V
    ```
 
-   This means: **Z** switches zoom, holding **Right Option** shows the map,
-   and holding **V** shows the player list. Change the key after `=` to the
-   key you want.
+   This means: **Z** switches zoom, holding **F** shows the map, and holding
+   **V** shows the player list. Change the key after `=` to the key you want.
+
+   The controls you start with:
+
+   | Key | What it does |
+   |-----|--------------|
+   | **Z** | zoom out / back in |
+   | **F** (hold) | show the map |
+   | **V** (hold) | show the list of players |
+   | **9** | switch camera centering |
+   | **B** | show monsters' health numbers |
+   | **X** | hide other players' names, health bars, attacks and effects |
+   | **0** | hide / show the chat |
 3. Save with **Cmd + S**. Changes work right away, even while the game is
    running.
 
