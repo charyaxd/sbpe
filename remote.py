@@ -160,32 +160,48 @@ def hook_textureCallback(texture, sptr):
     util.loadMipmaps(pname, sid[1])
 
 
+_animClass = {}  # vtable address -> is AnimationGraphic
+
+
 def _effectCall(kind, view, obj, srcWorldId, call):
     '''
     run an original WorldView effect method; if the active effect filter
-    says so, remember the AnimationGraphics it created so they get hidden
+    says so, remember the AnimationGraphics it created so they get hidden.
+
+    This runs for every hit/death/trail, which can be hundreds of times per
+    frame in big fights, so it must not scan all graphics: the methods only
+    append to WorldView.dynamicGraphics, so only the new tail is examined.
     '''
     filt = refs.effectFilter
     if filt is None or time.perf_counter() - refs.effectFilterTime > 1:
         call()
         return
-    try:
-        wv = ffi.cast('struct WorldView *', view)
-        before = set(util.vec2list(wv.dynamicGraphics, 'uintptr_t'))
-    except Exception:
-        call()
-        return
+    vec = ffi.cast('struct WorldView *', view).dynamicGraphics
+    n0 = (int(ffi.cast('uintptr_t', vec.finish)) -
+          int(ffi.cast('uintptr_t', vec.start))) // 8
+    last = ffi.cast('uintptr_t *', vec.start)[n0 - 1] if n0 > 0 else 0
     call()
     try:
+        start = ffi.cast('uintptr_t *', vec.start)
+        n1 = (int(ffi.cast('uintptr_t', vec.finish)) -
+              int(ffi.cast('uintptr_t', start))) // 8
+        if n1 <= n0:
+            return  # nothing was added
+        if n0 > 0 and start[n0 - 1] != last:
+            return  # list was rearranged meanwhile (not expected); skip
+        new = ffi.unpack(start + n0, n1 - n0)
         if not filt(kind, obj, srcWorldId):
             return
-        for g in util.vec2list(wv.dynamicGraphics, 'uintptr_t'):
-            if g in before:
-                continue
-            gp = ffi.cast('void *', g)
-            if util.getClassName(gp) == 'AnimationGraphic':
-                ag = ffi.cast('struct AnimationGraphic *', gp)
-                refs.hiddenEffects[g] = ag.animation
+        hidden = refs.hiddenEffects
+        for g in new:
+            vt = ffi.cast('uintptr_t *', g)[0]
+            isAnim = _animClass.get(vt)
+            if isAnim is None:
+                isAnim = util.getClassName(
+                    ffi.cast('void *', g)) == 'AnimationGraphic'
+                _animClass[vt] = isAnim
+            if isAnim:
+                hidden[g] = ffi.cast('struct AnimationGraphic *', g).animation
     except Exception:
         logging.exception('effect filter ({})'.format(kind))
 

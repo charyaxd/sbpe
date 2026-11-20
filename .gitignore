@@ -19,3 +19,4 @@ site-packages/
 *.o
 rectbinpack/_rbp*.so
 release/
+logs/

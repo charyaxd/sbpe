@@ -158,10 +158,11 @@ class Plugin(PluginBase):
         if not hidden:
             return
         alive = {}
-        for g in util.vec2list(wv.dynamicGraphics, 'uintptr_t'):
-            anim = hidden.get(g)
-            if anim is None:
-                continue
+        # one fast (C level) copy of the list, then only look at our entries
+        present = set(util.vec2list(wv.dynamicGraphics, 'uintptr_t'))
+        for g, anim in hidden.items():
+            if g not in present:
+                continue  # already gone
             ag = ffi.cast('struct AnimationGraphic *', g)
             if ag.animation != anim:
                 continue  # address reused by a different graphic

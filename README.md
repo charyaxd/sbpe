@@ -101,8 +101,13 @@ Good to know:
   `MVMMOClient.app` (in Steam's `steamapps/common/StarBreak` folder). StarBreak
   must be installed in Steam on the Mac user account you're using; each Mac
   user has their own Steam games.
+- **The game crashed?** Start it again with `run.command` as usual. The
+  logs of the crashed session are kept in the newest folder inside the
+  `logs` folder (SBPE keeps the last 5 sessions), and the last line of its
+  `game.log` says how the game ended.
 - **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpe/issues)
-  and attach the files `remote.log` and `crash.log` from the sbpe-mac folder.
+  and attach the files `remote.log` and `crash.log` from the sbpe-mac folder
+  (or from the `logs` folder, for an earlier session).
   Please **don't** share `game.log` publicly, it contains your Steam ID.
 
 **On Windows?** This download is for Mac only. Windows players can use the

@@ -14,7 +14,7 @@ trap 'rm -rf "$STAGE"' EXIT
 # everything except personal/runtime files and build intermediates
 rsync -a \
     --exclude config.ini --exclude '*.log' --exclude symbols.json \
-    --exclude '__pycache__' --exclude .DS_Store --exclude .git --exclude release \
+    --exclude '__pycache__' --exclude .DS_Store --exclude .git --exclude release --exclude logs \
     --exclude 'build/*' --exclude '*.o' --exclude 'rectbinpack/_rbp.cpp' \
     --exclude pypy --exclude '*.out' \
     ./ "$STAGE/$NAME/"

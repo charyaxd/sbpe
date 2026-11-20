@@ -163,32 +163,117 @@ def resolveSymbols(exepath):
     return offsets
 
 
-def launch(exepath):
+LOGDIR = os.path.join(SCRIPTPATH, 'logs')
+LOGFILES = ('remote.log', 'crash.log', 'game.log')
+KEEP_SESSIONS = 5
+
+
+def rotateLogs():
+    '''move the previous session's logs to logs/<date time>/, keep a few'''
+    old = [f for f in LOGFILES if os.path.exists(os.path.join(SCRIPTPATH, f))]
+    if not old:
+        return
+    try:
+        stamp = max(os.path.getmtime(os.path.join(SCRIPTPATH, f)) for f in old)
+        dest = os.path.join(LOGDIR, time.strftime(
+            '%Y-%m-%d %H.%M.%S', time.localtime(stamp)))
+        os.makedirs(dest, exist_ok=True)
+        for f in old:
+            shutil.move(os.path.join(SCRIPTPATH, f), os.path.join(dest, f))
+        sessions = sorted(
+            d for d in os.listdir(LOGDIR)
+            if os.path.isdir(os.path.join(LOGDIR, d)))
+        for d in sessions[:-KEEP_SESSIONS]:
+            shutil.rmtree(os.path.join(LOGDIR, d), ignore_errors=True)
+    except Exception as e:
+        logging.warning('could not keep old logs: {}'.format(e))
+
+
+def gameEnv():
+    '''environment for the game process'''
+    env = os.environ.copy()
     # on Linux and MacOS, use ld/dyld
     if platform.system() == 'Linux':
-        os.environ['LD_PRELOAD'] = REMOTEPATH
+        env['LD_PRELOAD'] = REMOTEPATH
     if platform.system() == 'Darwin':
         # the game binary is unsigned (no hardened runtime), so dyld honors
         # this; the dylib interposes SDL_Init via __DATA,__interpose
-        os.environ['DYLD_INSERT_LIBRARIES'] = REMOTEPATH
-        os.environ.pop('DYLD_FORCE_FLAT_NAMESPACE', None)
+        env['DYLD_INSERT_LIBRARIES'] = REMOTEPATH
+        env.pop('DYLD_FORCE_FLAT_NAMESPACE', None)
         # the embedded interpreter needs _cffi_backend etc. before remote.py
         # gets a chance to extend sys.path
         sitedir = os.path.join(SCRIPTPATH, 'site-packages')
-        os.environ['PYTHONPATH'] = os.pathsep.join(
+        env['PYTHONPATH'] = os.pathsep.join(
             [SCRIPTPATH, sitedir] + sys.path[1:])
+    return env
+
+
+def describeExit(code):
+    if code is None:
+        return 'still running'
+    if code < 0:
+        import signal
+        try:
+            name = signal.Signals(-code).name
+        except ValueError:
+            name = 'signal {}'.format(-code)
+        hint = {
+            'SIGSEGV': 'crash (invalid memory access)',
+            'SIGBUS': 'crash (invalid memory access)',
+            'SIGILL': 'crash (invalid instruction)',
+            'SIGABRT': 'crash (the game aborted itself)',
+            'SIGKILL': 'killed (by macOS, e.g. out of memory, or force quit)',
+            'SIGTERM': 'asked to quit',
+        }.get(name, 'stopped by a signal')
+        return '{} ({}, code {})'.format(hint, name, code)
+    return 'normal exit (code {})'.format(code)
+
+
+def recordExit(code, started):
+    '''append how the game ended to game.log'''
+    try:
+        with open(GAMELOG, 'a') as f:
+            f.write('\n[sbpe] {}: game ended after {:.0f} min: {}\n'.format(
+                time.strftime('%Y-%m-%d %H:%M:%S'),
+                (time.time() - started) / 60, describeExit(code)))
+    except OSError:
+        pass
+
+
+def watch(exepath):
+    '''
+    (macOS/Linux) run the game and wait for it, in a helper process that
+    outlives the loader and its Terminal window, so the exit is recorded
+    '''
+    started = time.time()
+    with open(GAMELOG, 'wb') as gout:
+        gpop = subprocess.Popen(
+            [exepath], stderr=subprocess.STDOUT, stdout=gout,
+            cwd=os.path.dirname(exepath), env=gameEnv())
+        code = gpop.wait()
+    recordExit(code, started)
+
+
+def launch(exepath, keepopen=False):
+    if platform.system() != 'Windows' and not keepopen:
+        # the game logs a lot to stderr (glog): a pipe nobody drains would
+        # eventually block it, and SIGPIPE would kill it once the loader
+        # exits, so it goes to game.log; a detached helper waits for it
+        helper = subprocess.Popen(
+            [sys.executable, os.path.abspath(__file__), '--watch', exepath],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True,
+            cwd=SCRIPTPATH)
+        return helper
 
     # start the game
     if platform.system() == 'Windows':
         gout = subprocess.PIPE
     else:
-        # the game logs a lot to stderr (glog): a pipe nobody drains would
-        # eventually block it, and SIGPIPE would kill it once the loader
-        # exits, so send it to a file instead
         gout = open(GAMELOG, 'wb')
     gpop = subprocess.Popen(
         [exepath], stderr=subprocess.STDOUT,
-        stdout=gout, cwd=os.path.dirname(exepath))
+        stdout=gout, cwd=os.path.dirname(exepath), env=gameEnv())
 
     # on Windows, inject into the running process
     if platform.system() == 'Windows':
@@ -291,20 +376,24 @@ def runLoader(exepath=''):
     if mipmaps:
         shutil.copy(dvmpath, dvpath)
 
-    # remove old log
+    # keep the previous sessions' logs (logs/), start with fresh ones
     rlog = None
     rlogpath = os.path.join(SCRIPTPATH, 'remote.log')
-    if os.path.exists(rlogpath):
-        os.unlink(rlogpath)
+    rotateLogs()
 
     # start the game
-    gpop = launch(exepath)
+    started = time.time()
+    gpop = launch(exepath, keepopen)
 
     if not gpop:
         logging.error('failed to launch')
         return False
 
-    logging.info('game pid {}'.format(gpop.pid))
+    if platform.system() != 'Windows' and not keepopen:
+        logging.info('game started (logs: game.log, remote.log, crash.log; '
+                     'older sessions in logs/)')
+    else:
+        logging.info('game pid {}'.format(gpop.pid))
 
     # exit here to close the console window
     if not keepopen:
@@ -330,7 +419,9 @@ def runLoader(exepath=''):
     except Exception:
         gpop.kill()
 
-    logging.info('game closed: code {}'.format(gpop.returncode))
+    logging.info('game closed: ' + describeExit(gpop.returncode))
+    if platform.system() != 'Windows':
+        recordExit(gpop.returncode, started)
 
     # dump stdout
     if platform.system() == 'Windows':
@@ -347,6 +438,9 @@ def runLoader(exepath=''):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) == 3 and sys.argv[1] == '--watch':
+        watch(sys.argv[2])
+        sys.exit(0)
     logging.info('SBPE loader')
     if runLoader(DEFAULTGAMEPATH) is False:
         input('\npress ENTER to exit')
