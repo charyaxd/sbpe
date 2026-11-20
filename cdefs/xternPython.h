@@ -11,8 +11,3 @@ extern "Python" void hook_mouseButton(int x, int y, int button, int down, void *
 
 extern "Python" void hook_LoadTextureFile(const char *textureFilename, XDL_LoadTextureDoneCallback callback, void *userData);
 extern "Python" void hook_textureCallback(unsigned int texture, void *sheetPtr);
-
-// WorldView effect hooks (macOS)
-extern "Python" void hook_handleDamage(void *view, void *obj, int damage, bool b1, bool b2, unsigned int srcWorldId, int x, int y, const char *vid);
-extern "Python" void hook_handleObjectRemoved(void *view, void *obj, int reason);
-extern "Python" void hook_handleTrail(void *view, void *obj, const char *vid);

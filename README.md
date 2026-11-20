@@ -15,16 +15,12 @@ installed through Steam.
 
 1. **Download** SBPE with the button above.
 2. **Unzip it:** open your Downloads folder and double-click the file you
-   downloaded. A folder called **sbpe-mac** appears. Drag the **sbpe-mac**
-   folder to your **Desktop**.
+   downloaded. A folder called **sbpe-mac** appears. Move it somewhere easy
+   to find, like your Documents folder.
 3. **Open Steam** and make sure you're signed in.
-4. **Open the sbpe-mac folder on your Desktop and double-click
-   `run.command`.** The game starts with SBPE. The very first start takes
-   about a minute longer than usual.
-5. *(Optional)* **Make `run.command` easy to find.** The folder has a lot of
-   files. With the sbpe-mac folder open, click **View** in the menu bar at
-   the top of the screen, then **Sort By → Kind**. Now `run.command` is
-   always the **last item at the bottom** of the folder.
+4. **Open the sbpe-mac folder and double-click `run.command`.**
+   The game starts with SBPE. The very first start takes about a minute
+   longer than usual.
 
 That's it. **From now on, always start StarBreak by double-clicking
 `run.command`.** If you press Play in Steam instead, the game starts without
@@ -72,7 +68,7 @@ appears after the first start).
    | **V** (hold) | show the list of players |
    | **9** | switch camera centering |
    | **B** | show monsters' health numbers |
-   | **X** | hide other players' names, health bars, attacks and effects (your own effects stay visible) |
+   | **X** | hide other players' names, health bars, attacks and effects |
    | **0** | hide / show the chat |
 3. Save with **Cmd + S**. Changes work right away, even while the game is
    running.
@@ -96,18 +92,11 @@ Good to know:
 
 - **The game starts, but nothing from SBPE shows up:** you probably started
   it from Steam. Close the game and start it with `run.command`.
-- **"StarBreak was not found"**: SBPE looks in all your Steam library
-  folders, and if it still can't find the game it asks you to pick
-  `MVMMOClient.app` (in Steam's `steamapps/common/StarBreak` folder). StarBreak
-  must be installed in Steam on the Mac user account you're using; each Mac
-  user has their own Steam games.
-- **The game crashed?** Start it again with `run.command` as usual. The
-  logs of the crashed session are kept in the newest folder inside the
-  `logs` folder (SBPE keeps the last 5 sessions), and the last line of its
-  `game.log` says how the game ended.
+- **StarBreak is installed in a different place** (for example on an
+  external drive): open `config.ini` and change the line that starts with
+  `game =` to the location of `MVMMOClient.app`.
 - **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpe/issues)
-  and attach the files `remote.log` and `crash.log` from the sbpe-mac folder
-  (or from the `logs` folder, for an earlier session).
+  and attach the files `remote.log` and `crash.log` from the sbpe-mac folder.
   Please **don't** share `game.log` publicly, it contains your Steam ID.
 
 **On Windows?** This download is for Mac only. Windows players can use the
@@ -293,7 +282,6 @@ These sub-options are:
 - `hide_names`, `hide_factions`, `hide_healthbars`: hide various elements of other players. `hide_names` will also hide factions due to the way it works.
 - `hide_ally_objects`: hide all objects created by other players, except for macrons. This includes, but not limited to: bullets, grenades, fire, blasts, rockets.
 - `hide_effects`: hide damage effects (flashes/explosion sprites), death animations, particle trails (smoke trails, warp particles).
-- `hide_own_effects`: whether `hide_effects` also hides the effects of your own character: your attacks and their explosions, hits you deal, hits you take, your trails. Default `no`: only effects of mobs and other players are hidden. (On macOS; other builds always hide all effects.)
 - `replace_shake`: replace screen shake and flash effects with an indicator in top middle of the screen.
 - `hide_chat`: completely hide chat.
 

@@ -23,17 +23,7 @@ SYMTYPES = {
     'canvasH_': 'int *',
     'userData_': 'void **',
     'WorldClient::handleWindowEvent': 'void *',
-    'UIElementContainer::handleWindowEvent': 'void *',
-    'WorldView::handleDamage': 'void *',
-    'WorldView::handleObjectRemoved': 'void *',
-    'WorldView::handleTrail': 'void *',
-}
-
-# hooked C++ methods: symbol -> function pointer type
-METHODTYPES = {
-    'WorldView::handleDamage': 'pWorldView_handleDamage',
-    'WorldView::handleObjectRemoved': 'pWorldView_handleObjectRemoved',
-    'WorldView::handleTrail': 'pWorldView_handleTrail',
+    'UIElementContainer::handleWindowEvent': 'void *'
 }
 
 
@@ -56,14 +46,7 @@ refs = dotdict(
     overrideW=0, overrideH=0,  # fake values to return from XDL_GetWindowSize
     windowW=0, windowH=0,  # current window size
     scaleX=1, scaleY=1,    # current window scale
-    lastMove=0,  # timestamp of last mouse movement
-    # effect filtering (see hook_handleDamage etc. below): a plugin sets
-    # effectFilter(kind, obj, srcWorldId) -> True to hide the effects created
-    # by that call, and refreshes effectFilterTime every frame
-    effectHooks=False,
-    effectFilter=None,
-    effectFilterTime=0,
-    hiddenEffects={},  # AnimationGraphic address -> its Animation pointer
+    lastMove=0  # timestamp of last mouse movement
 )
 
 refs.VERSION = VERSION
@@ -160,77 +143,10 @@ def hook_textureCallback(texture, sptr):
     util.loadMipmaps(pname, sid[1])
 
 
-_animClass = {}  # vtable address -> is AnimationGraphic
-
-
-def _effectCall(kind, view, obj, srcWorldId, call):
-    '''
-    run an original WorldView effect method; if the active effect filter
-    says so, remember the AnimationGraphics it created so they get hidden.
-
-    This runs for every hit/death/trail, which can be hundreds of times per
-    frame in big fights, so it must not scan all graphics: the methods only
-    append to WorldView.dynamicGraphics, so only the new tail is examined.
-    '''
-    filt = refs.effectFilter
-    if filt is None or time.perf_counter() - refs.effectFilterTime > 1:
-        call()
-        return
-    vec = ffi.cast('struct WorldView *', view).dynamicGraphics
-    n0 = (int(ffi.cast('uintptr_t', vec.finish)) -
-          int(ffi.cast('uintptr_t', vec.start))) // 8
-    last = ffi.cast('uintptr_t *', vec.start)[n0 - 1] if n0 > 0 else 0
-    call()
-    try:
-        start = ffi.cast('uintptr_t *', vec.start)
-        n1 = (int(ffi.cast('uintptr_t', vec.finish)) -
-              int(ffi.cast('uintptr_t', start))) // 8
-        if n1 <= n0:
-            return  # nothing was added
-        if n0 > 0 and start[n0 - 1] != last:
-            return  # list was rearranged meanwhile (not expected); skip
-        new = ffi.unpack(start + n0, n1 - n0)
-        if not filt(kind, obj, srcWorldId):
-            return
-        hidden = refs.hiddenEffects
-        for g in new:
-            vt = ffi.cast('uintptr_t *', g)[0]
-            isAnim = _animClass.get(vt)
-            if isAnim is None:
-                isAnim = util.getClassName(
-                    ffi.cast('void *', g)) == 'AnimationGraphic'
-                _animClass[vt] = isAnim
-            if isAnim:
-                hidden[g] = ffi.cast('struct AnimationGraphic *', g).animation
-    except Exception:
-        logging.exception('effect filter ({})'.format(kind))
-
-
-@ffi.def_extern()
-def hook_handleDamage(view, obj, damage, b1, b2, srcWorldId, x, y, vid):
-    _effectCall('damage', view, obj, srcWorldId, lambda: ORIGS[
-        'WorldView::handleDamage'](
-            view, obj, damage, b1, b2, srcWorldId, x, y, vid))
-
-
-@ffi.def_extern()
-def hook_handleObjectRemoved(view, obj, reason):
-    _effectCall('removed', view, obj, None, lambda: ORIGS[
-        'WorldView::handleObjectRemoved'](view, obj, reason))
-
-
-@ffi.def_extern()
-def hook_handleTrail(view, obj, vid):
-    _effectCall('trail', view, obj, None, lambda: ORIGS[
-        'WorldView::handleTrail'](view, obj, vid))
-
-
 def initHooks():
     def addhook(fname, hookfunc, ret=False):
-        ctype = METHODTYPES.get(fname, 'p' + fname)
-        target = ffi.cast(ctype, refs[fname])
         hook = lib.subhook_new(refs[fname], hookfunc, 1)
-        orig = ffi.cast(ctype, lib.subhook_get_trampoline(hook))
+        orig = ffi.cast('p' + fname, lib.subhook_get_trampoline(hook))
         logging.debug('{}: src {} trampoline {}'.format(fname, refs[fname], orig))
         if orig != ffi.NULL:
             ORIGS[fname] = orig
@@ -239,7 +155,7 @@ def initHooks():
 
             def call_orig(*args):
                 lib.subhook_remove(hook)
-                res = target(*args)
+                res = refs[fname](*args)
                 lib.subhook_install(hook)
                 if ret:
                     return res
@@ -260,13 +176,6 @@ def initHooks():
 
     if refs.config.getboolean('general', 'mipmaps', fallback=False):
         addhook('XDL_LoadTextureFile', lib.hook_LoadTextureFile)
-
-    # effect creation (64-bit only: plain calling convention for methods)
-    if all(name in refs for name in METHODTYPES):
-        addhook('WorldView::handleDamage', lib.hook_handleDamage)
-        addhook('WorldView::handleObjectRemoved', lib.hook_handleObjectRemoved)
-        addhook('WorldView::handleTrail', lib.hook_handleTrail)
-        refs.effectHooks = True
 
 
 # symbols (macOS) ############################################################
@@ -298,10 +207,6 @@ flags::drawBoxes
 
 WorldClient::handleWindowEvent
 UIElementContainer::handleWindowEvent
-
-WorldView::handleDamage
-WorldView::handleObjectRemoved
-WorldView::handleTrail
 '''.split()
 
 

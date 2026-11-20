@@ -17,15 +17,12 @@ class Plugin(PluginBase):
             'hide_healthbars': False,
             'hide_ally_objects': False,
             'hide_effects': False,
-            'hide_own_effects': False,
             'hide_chat': False,
         })
         self.config.option('damage_flash_intensity', 1, 'float')
 
         self.hidden = set()
         self.oldbits = []
-        self._mineByClass = {}  # vtable address -> is own object
-        self.myWorldId = None
 
         self.config.option('replace_shake', True, 'bool')
         self._shake = 0
@@ -97,7 +94,11 @@ class Plugin(PluginBase):
                     if dt < rt:
                         obj.lastDamageT = swt - rt
 
-        self.updateEffects(cw, wv)
+        for graphic in util.vec2list(wv.dynamicGraphics):
+            gtype = util.getClassName(graphic)
+            if self.config.hide_effects and gtype == 'AnimationGraphic':
+                g = ffi.cast('struct AnimationGraphic *', graphic)
+                g.startTime = 0
 
         if self.config.replace_shake:
             ct = time.perf_counter()
@@ -109,67 +110,6 @@ class Plugin(PluginBase):
             if wv.flashPos < flashduration and wv.flashColor != 0:
                 self._flash = max(self._flash, ct + flashduration / 1000)
             wv.flashColor = 0
-
-    def isMine(self, obj):
-        '''objects of the own character (player, own bullets etc.) are
-        ClientObjects; those of mobs and other players are ForeignObjects'''
-        if obj == ffi.NULL:
-            return False
-        vt = int(ffi.cast('uintptr_t *', obj)[0])
-        mine = self._mineByClass.get(vt)
-        if mine is None:
-            name = util.getClassName(obj)
-            mine = name == 'ClientObject' or \
-                name in self.refs.CASTABLE.get('ClientObject', ())
-            self._mineByClass[vt] = mine
-        return mine
-
-    def effectFilter(self, kind, obj, srcWorldId):
-        '''True = hide the effects created for this object/event'''
-        if self.config.hide_own_effects:
-            return True
-        if self.isMine(obj):
-            return False  # own character/objects, or own character was hit
-        if kind == 'damage' and self.myWorldId is not None and \
-                srcWorldId == self.myWorldId:
-            return False  # hits dealt by own character
-        return True
-
-    def updateEffects(self, cw, wv):
-        refs = self.refs
-        if not self.config.hide_effects:
-            refs.effectFilter = None
-            refs.hiddenEffects.clear()
-            return
-
-        if not refs.effectHooks:
-            # no effect hooks (e.g. 32-bit builds): hide all effects
-            for graphic in util.vec2list(wv.dynamicGraphics):
-                if util.getClassName(graphic) == 'AnimationGraphic':
-                    ffi.cast('struct AnimationGraphic *', graphic).startTime = 0
-            return
-
-        self.myWorldId = cw.asWorld.id
-        refs.effectFilter = self.effectFilter
-        refs.effectFilterTime = time.perf_counter()
-
-        # hide the remembered effects that still exist; forget the rest
-        hidden = refs.hiddenEffects
-        if not hidden:
-            return
-        alive = {}
-        # one fast (C level) copy of the list, then only look at our entries
-        present = set(util.vec2list(wv.dynamicGraphics, 'uintptr_t'))
-        for g, anim in hidden.items():
-            if g not in present:
-                continue  # already gone
-            ag = ffi.cast('struct AnimationGraphic *', g)
-            if ag.animation != anim:
-                continue  # address reused by a different graphic
-            ag.startTime = 0
-            alive[g] = anim
-        hidden.clear()
-        hidden.update(alive)
 
     def hide(self, obj):
         obj.props.xmp -= OFFSET
