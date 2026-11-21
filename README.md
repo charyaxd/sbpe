@@ -16,11 +16,13 @@ installed through Steam.
 1. **Download** SBPE with the button above.
 2. **Unzip it:** open your Downloads folder and double-click the file you
    downloaded. A folder called **sbpe-mac** appears. Move it somewhere easy
-   to find, like your Documents folder.
+   to find, like your Desktop.
 3. **Open Steam** and make sure you're signed in.
 4. **Open the sbpe-mac folder and double-click `run.command`.**
    The game starts with SBPE. The very first start takes about a minute
    longer than usual.
+5. **(OPTIONAL) Make run.cmd easier to find** Open your sbpe-mac folder and click the 3 dots at the top right of the folder. Sort By —> Kind.
+Now run.cmd will always be at the bottom of your folder
 
 That's it. **From now on, always start StarBreak by double-clicking
 `run.command`.** If you press Play in Steam instead, the game starts without
