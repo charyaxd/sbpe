@@ -4,7 +4,7 @@
 point to the next door and secrets, a cleaner health bar, an FPS counter, a
 list of players online, an option to hide other players' clutter, and more.
 
-### [⬇️ Download SBPE for Mac](https://github.com/charyaxd/sbpe/releases/latest/download/sbpe-mac-v1.7.0-mac1.zip)
+### [⬇️ Download SBPE for Mac](https://github.com/charyaxd/sbpemac/releases/latest/download/sbpe-mac-v1.7.0-mac1.zip)
 
 Works on Macs with Apple chips (M1, M2, M3, M4, …). StarBreak has to be
 installed through Steam.
@@ -97,7 +97,7 @@ Good to know:
 - **StarBreak is installed in a different place** (for example on an
   external drive): open `config.ini` and change the line that starts with
   `game =` to the location of `MVMMOClient.app`.
-- **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpe/issues)
+- **Still stuck?** [Open an issue](https://github.com/charyaxd/sbpemac/issues)
   and attach the files `remote.log` and `crash.log` from the sbpe-mac folder.
   Please **don't** share `game.log` publicly, it contains your Steam ID.
 
