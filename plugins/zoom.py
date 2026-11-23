@@ -49,7 +49,19 @@ class Plugin(PluginBase):
             lib.subhook_remove(self._hook)
             lib.subhook_free(self._hook)
 
-    def afterUpdate(self):
+    def beforeUpdate(self):
+        '''
+        Apply zoom changes at the start of a frame, before the game updates:
+        that's when a real window resize reaches the game. Doing it during
+        drawing (afterUpdate runs inside XDL_Clear) made the game rebuild its
+        HUD mid-frame, and deleting the old HUD textures there crashed the
+        macOS OpenGL driver (glDeleteTextures -> AGXTexture dealloc).
+        '''
+        if not self.refs.windowW:
+            return  # no frame drawn yet
+        self.applyZoom()
+
+    def applyZoom(self):
         cw = self.refs.canvasW_
         ch = self.refs.canvasH_
 
